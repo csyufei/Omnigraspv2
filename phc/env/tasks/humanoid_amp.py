@@ -328,14 +328,14 @@ class HumanoidAMP(humanoid_z.HumanoidZ):
 
     def _load_motion1(self, motion_file):
         self.skill_name = motion_file.split('/')[-1] #metric
-        self.max_episode_length = 60 #60 by meeee
+        self.max_episode_length_v1 = 60 #60 by meeee
         if self.cfg["env"]["episodeLength"] > 0:
-            self.max_episode_length =  self.cfg["env"]["episodeLength"]
+            self.max_episode_length_v1 =  self.cfg["env"]["episodeLength"]
         
-        self.hoi_data_batch = torch.zeros([self.num_envs, self.max_episode_length, self.ref_hoi_obs_size], device=self.device, dtype=torch.float)
+        self.hoi_data_batch = torch.zeros([self.num_envs, self.max_episode_length_v1, self.ref_hoi_obs_size], device=self.device, dtype=torch.float)
         self._motion_lib2 = MotionDataHandler(motion_file, self.device, self.ref_key_body_ids, self.cfg, self.num_envs, 
-                                            self.max_episode_length, self.reward_weights_default, self.init_vel, self.play_dataset)
-        self.max_episode_length = self._motion_lib2.get_max_episode_length()
+                                            self.max_episode_length_v1, self.reward_weights_default, self.init_vel, self.play_dataset)
+        self.max_episode_length_v1 = self._motion_lib2.get_max_episode_length()
         return
 
     def _load_motion(self, motion_file):

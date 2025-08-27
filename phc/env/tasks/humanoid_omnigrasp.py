@@ -586,7 +586,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         plane_pose = gymapi.Transform()
         plane_pose.p.x = -0.5 # 0
         plane_pose.p.y = -0.0 # 0
-        plane_pose.p.z = 0.11 # 0.1
+        plane_pose.p.z = 0.11 + 0.0 # 0.1
         plane_handle = self.gym.create_actor(env_ptr, self._plane_proj_asset, plane_pose, "plane", col_group, col_filter, segmentation_id)
         self.gym.set_rigid_body_color(env_ptr, plane_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.5, 0.5, 0.5))
 
@@ -620,6 +620,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         # ref_o_ang_vel, ref_o_lin_vel, ref_o_rb_rot, ref_o_rb_pos = motion_res['o_ang_vel'][:, :1], motion_res['o_lin_vel'][:, :1], motion_res['o_rb_rot'][:, :1], motion_res['o_rb_pos'][:, :1]
         
         self._obj_states[env_ids, :3] = self.init_obj_pos[env_ids]
+        # self._obj_states[env_ids, 2] += 0.3
         self._obj_states[env_ids, 3:7] = self.init_obj_rot[env_ids]
         self._obj_states[env_ids, 7:10] = self.init_obj_pos_vel[env_ids]
         self._obj_states[env_ids, 10:13] = self.init_obj_rot_vel[env_ids]
@@ -807,7 +808,8 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         grab_reward, grab_reward_raw = compute_grab_reward(root_pos, root_rot, obj_pos, obj_rot, obj_lin_vel, obj_ang_vel,  ref_o_rb_pos, ref_o_rb_rot, ref_o_lin_vel, ref_o_ang_vel,  contact_filter, self.reward_specs)
         
         if self.cfg.env.get("pregrasp_reward", True):
-            contact_hand_dict = torch.load('sample_data/pre_grasp.pth')
+            contact_hand_dict = torch.load('sample_data/pre_grasp_v1.pth')
+            # import pdb; pdb.set_trace()
             # contact_hand_dict = self._motion_lib.get_contact_hand_pose(self._sampled_motion_ids)
             ref_contact_hand_pos, ref_contact_hand_rot, ref_contact_hand_vel, ref_contact_hand_ang_vel, contact_ref_obj_pos = contact_hand_dict['hand_pos'].repeat(self.num_envs, 1, 1),  contact_hand_dict['hand_rot'].repeat(self.num_envs, 1, 1), contact_hand_dict['hand_vel'].repeat(self.num_envs, 1, 1), contact_hand_dict['hand_rot_vel'].repeat(self.num_envs, 1, 1), contact_hand_dict['ref_obj_pos'].repeat(self.num_envs, 1, 1)
             # ref_contact_hand_pos, ref_contact_hand_rot, ref_contact_hand_vel, ref_contact_hand_ang_vel, contact_ref_obj_pos = contact_hand_dict['contact_hand_trans'],  contact_hand_dict['contact_hand_rot'], contact_hand_dict['contact_hand_vel'], contact_hand_dict['contact_hand_ang_vel'], contact_hand_dict['contact_ref_obj_pos']
@@ -815,7 +817,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
             pass_contact_time = motion_times > self.grasp_start_frame * self.dt
             grab_reward[~pass_contact_time] = pregrasp_reward[~pass_contact_time]
 
-        self.rew_buf[:], self.reward_raw =  grab_reward , torch.cat([grab_reward_raw], dim=-1)
+        self.rew_buf[:], self.reward_raw = grab_reward , torch.cat([grab_reward_raw], dim=-1)
         
         if self.cfg.env.get("penality_slippage", False):
             slipage = torch.clamp(self._penality_slippage() * self.cfg.env.get("slippage_coefficient", 0.3), 0, 1)
@@ -856,7 +858,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         obj_pos = self._obj_states[..., None, 0:3]
         obj_rot = self._obj_states[..., None, 3:7]
         hand_pos = self._rigid_body_pos[:, self._hand_body_ids, :]
-        
+        import pdb; pdb.set_trace()
         grab_reset, grab_terminate = compute_humanoid_grab_reset(self.reset_buf, self.progress_buf, self._contact_forces, self._contact_body_ids, \
                                                                                obj_pos, obj_rot,  ref_o_rb_pos, ref_o_rb_rot,  hand_pos, pass_time, self._enable_early_termination,
                                                                                self.grab_termination_disatnce, flags.no_collision_check, self.check_rot_reset and (not flags.im_eval))
@@ -1348,7 +1350,7 @@ def compute_grab_reward(root_pos, root_rot, obj_pos, obj_rot, obj_vel, obj_ang_v
     
     return reward, reward_raw
  
-@torch.jit.script
+# @torch.jit.script
 def compute_humanoid_grab_reset(reset_buf, progress_buf, contact_buf, contact_body_ids, obj_pos, obj_rot, ref_obj_pos, ref_obj_rot, hand_pos, pass_time, enable_early_termination, termination_distance, disableCollision, check_rot_reset):
     # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor,Tensor, Tensor, Tensor, Tensor, bool, Tensor, bool, bool) -> Tuple[Tensor, Tensor]
     
