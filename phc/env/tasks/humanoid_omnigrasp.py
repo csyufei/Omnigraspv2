@@ -112,6 +112,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
 
         self.table_remove_frame = torch.zeros(self.num_envs).to(self.device) # 45 frames, 1.5 second
         self.table_remove_frame[:] = cfg["env"].get("table_remove_frame", 45)
+        # import pdb; pdb.set_trace()
         self.grasp_start_frame = cfg["env"].get("grasp_start_frame", 30)
         self.check_rot_reset = cfg["env"].get("check_rot_reset", False)
         self.close_distance_pregrasp = cfg["env"].get("close_distance_pregrasp", 0.2)
@@ -584,9 +585,9 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         segmentation_id = 0
 
         plane_pose = gymapi.Transform()
-        plane_pose.p.x = -0.5 # 0
-        plane_pose.p.y = -0.0 # 0
-        plane_pose.p.z = 0.11 + 0.0 # 0.1
+        plane_pose.p.x = -0.5 # 0   + 0.5
+        plane_pose.p.y = -0.0 # 0 + 1.5 - 0.5
+        plane_pose.p.z = 0.11 + 0.5 # 0.1
         plane_handle = self.gym.create_actor(env_ptr, self._plane_proj_asset, plane_pose, "plane", col_group, col_filter, segmentation_id)
         self.gym.set_rigid_body_color(env_ptr, plane_handle, 0, gymapi.MESH_VISUAL, gymapi.Vec3(0.5, 0.5, 0.5))
 
@@ -620,14 +621,17 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         # ref_o_ang_vel, ref_o_lin_vel, ref_o_rb_rot, ref_o_rb_pos = motion_res['o_ang_vel'][:, :1], motion_res['o_lin_vel'][:, :1], motion_res['o_rb_rot'][:, :1], motion_res['o_rb_pos'][:, :1]
         
         self._obj_states[env_ids, :3] = self.init_obj_pos[env_ids]
-        # self._obj_states[env_ids, 2] += 0.3
+        # self._obj_states[env_ids, 0] += 0.5
+        # self._obj_states[env_ids, 1] -= 0.5
+        # self._obj_states[env_ids, 2] += 0.5
         self._obj_states[env_ids, 3:7] = self.init_obj_rot[env_ids]
         self._obj_states[env_ids, 7:10] = self.init_obj_pos_vel[env_ids]
         self._obj_states[env_ids, 10:13] = self.init_obj_rot_vel[env_ids]
-
+        # import pdb; pdb.set_trace()
         
         # static_o_ang_vel, static_o_lin_vel, static_o_rb_rot, static_o_rb_pos = motion_res['o_ang_vel'][:, 1:], motion_res['o_lin_vel'][:, 1:], motion_res['o_rb_rot'][:, 1:], motion_res['o_rb_pos'][:, 1:]
         # self._table_states[env_ids, :3] = static_o_rb_pos[:, 0] 
+        self._table_states[env_ids, 2] = 0.11 + 0.5
         # self._table_states[env_ids, 2] -= (0.1 - 0.005481)/2 # This is becuase I am using a thicker table. 
         # self._table_states[env_ids, 3:7] = static_o_rb_rot[:, 0]
         # self._table_states[env_ids, 7:10] = static_o_lin_vel[:, 0]
@@ -662,7 +666,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         
         if self.cfg.env.get("use_stage_reward", False):
             self.table_remove_frame[env_ids] = (self._motion_lib.get_contact_time(self._sampled_motion_ids[env_ids]) - motion_times)/self.dt # update table remove frame based on the sample start time of the motion. 0.25 is the raise time of the object. Bascially, the object will be raised within 0.25 second, and the table should be safe to be removed. 
-        
+        # import pdb; pdb.set_trace()
         if self.humanoid_type in ["smpl", "smplh", "smplx"] :
             # import pdb; pdb.set_trace()
             motion_res = self._get_state_from_motionlib_cache(self._sampled_motion_ids[env_ids], motion_times)
@@ -808,11 +812,18 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         grab_reward, grab_reward_raw = compute_grab_reward(root_pos, root_rot, obj_pos, obj_rot, obj_lin_vel, obj_ang_vel,  ref_o_rb_pos, ref_o_rb_rot, ref_o_lin_vel, ref_o_ang_vel,  contact_filter, self.reward_specs)
         
         if self.cfg.env.get("pregrasp_reward", True):
-            contact_hand_dict = torch.load('sample_data/pre_grasp_v1.pth')
+            contact_hand_dict = torch.load('sample_data/pre_grasp_v4.pth')
+            # contact_hand_dict1 = torch.load('sample_data/pre_grasp_v2.pth')
             # import pdb; pdb.set_trace()
             # contact_hand_dict = self._motion_lib.get_contact_hand_pose(self._sampled_motion_ids)
             ref_contact_hand_pos, ref_contact_hand_rot, ref_contact_hand_vel, ref_contact_hand_ang_vel, contact_ref_obj_pos = contact_hand_dict['hand_pos'].repeat(self.num_envs, 1, 1),  contact_hand_dict['hand_rot'].repeat(self.num_envs, 1, 1), contact_hand_dict['hand_vel'].repeat(self.num_envs, 1, 1), contact_hand_dict['hand_rot_vel'].repeat(self.num_envs, 1, 1), contact_hand_dict['ref_obj_pos'].repeat(self.num_envs, 1, 1)
             # ref_contact_hand_pos, ref_contact_hand_rot, ref_contact_hand_vel, ref_contact_hand_ang_vel, contact_ref_obj_pos = contact_hand_dict['contact_hand_trans'],  contact_hand_dict['contact_hand_rot'], contact_hand_dict['contact_hand_vel'], contact_hand_dict['contact_hand_ang_vel'], contact_hand_dict['contact_ref_obj_pos']
+            # ref_contact_hand_pos[:, :, 2] += 0.2
+            # contact_ref_obj_pos[:, :, 2] += 0.2
+            # ref_contact_hand_pos[:, :, 0] += 0.5
+            # ref_contact_hand_pos[:, :, 1] -= 0.5
+            # contact_ref_obj_pos[:, :, 0] += 0.5
+            # contact_ref_obj_pos[:, :, 1] -= 0.5
             pregrasp_reward, pregrasp_reward_raw = compute_pregrasp_reward_time(root_pos, root_rot, hand_pos, hand_rot, hand_vel, hand_ang_vel, ref_contact_hand_pos, ref_contact_hand_rot, ref_contact_hand_vel, ref_contact_hand_ang_vel,  contact_ref_obj_pos, self._hand_pos_prev, self.close_distance_pregrasp,  self.reward_specs)
             pass_contact_time = motion_times > self.grasp_start_frame * self.dt
             grab_reward[~pass_contact_time] = pregrasp_reward[~pass_contact_time]
@@ -858,7 +869,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         obj_pos = self._obj_states[..., None, 0:3]
         obj_rot = self._obj_states[..., None, 3:7]
         hand_pos = self._rigid_body_pos[:, self._hand_body_ids, :]
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         grab_reset, grab_terminate = compute_humanoid_grab_reset(self.reset_buf, self.progress_buf, self._contact_forces, self._contact_body_ids, \
                                                                                obj_pos, obj_rot,  ref_o_rb_pos, ref_o_rb_rot,  hand_pos, pass_time, self._enable_early_termination,
                                                                                self.grab_termination_disatnce, flags.no_collision_check, self.check_rot_reset and (not flags.im_eval))
@@ -948,7 +959,7 @@ class HumanoidOmniGrasp(humanoid_amp_task.HumanoidAMPTask):
         if self.save_kin_info: # this needs to happen BEFORE the next time-step observation is computed, to collect the "current time-step target"
             self.extras['kin_dict'] = self.kin_dict
             
-        self.remove_table(env_ids=self.all_env_ids[self.progress_buf > self.table_remove_frame ])
+        # self.remove_table(env_ids=self.all_env_ids[self.progress_buf > self.table_remove_frame ])
         
         
         super().post_physics_step()

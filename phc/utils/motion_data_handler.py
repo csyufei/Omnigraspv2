@@ -251,10 +251,21 @@ class MotionDataHandler:
             loaded_dict['dof_pos'] = torch.cat((loaded_dict['hoi_data']['wrist_dof'], loaded_dict['hoi_data']['fingers_dof']), dim=1).clone().float().to(self.device) #changeged by me
             loaded_dict['dof_pos_vel'] = self._compute_velocity(loaded_dict['dof_pos'], fps_data)
             loaded_dict['body_pos'] = loaded_dict['hoi_data']['body_pos'].clone().float().to(self.device) #changeged by me
+            # '''
+            body_pos_tmp = loaded_dict['body_pos'].view(loaded_dict['body_pos'].shape[0], 16, 3)          ###### 220 specific
+            body_pos_tmp[:, :, 0] -= 0.4
+            body_pos_tmp[:, :, 1] -= 0.2
+            body_pos_tmp[:, :, 2] += 0.5
+            loaded_dict['body_pos'] = body_pos_tmp.view(loaded_dict['body_pos'].shape[0],16*3)
+            # '''
             loaded_dict['key_body_pos'] = loaded_dict['body_pos'].clone() #changeged by me
             loaded_dict['key_body_pos_vel'] = self._compute_velocity(loaded_dict['key_body_pos'], fps_data)
 
             loaded_dict['obj_pos'] = loaded_dict['hoi_data']['obj_pos'].clone().float().to(self.device)
+            loaded_dict['obj_pos'][..., 0] -= 0.4
+            loaded_dict['obj_pos'][..., 1] -= 0.2
+            loaded_dict['obj_pos'][..., 2] += 0.5
+
             if loaded_dict['hoi_data']['obj_pos_vel'] is None:
                 loaded_dict['obj_pos_vel'] = self._compute_velocity(loaded_dict['obj_pos'], fps_data)
             else:
